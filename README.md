@@ -72,17 +72,6 @@ brew install ffmpeg
 
 ---
 
-## 📁 Project Structure
-
-```text
-BouncingBall/
-├── start.py
-├── audio.mp3        # optional
-├── README.md
-```
-
----
-
 ## 🛠️ Notes
 
 - This project is designed for **visual simulations**, not realistic physics  
