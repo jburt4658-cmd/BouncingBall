@@ -2,6 +2,7 @@ import pygame
 import math
 import sys
 import json
+import os
 
 # Initialize Pygame
 pygame.init()
@@ -48,6 +49,57 @@ hue = 0  # For rainbow color cycling
 
 # Shared data file for info window
 DATA_FILE = "/tmp/ball_info.json"
+
+# Audio tracking
+audio_chunks = []
+current_chunk_index = 0
+
+# Load audio file if it exists and slice it into 0.5 second chunks
+def load_audio():
+    """Load audio.mp3 file and slice into 0.5 second chunks"""
+    global audio_chunks
+    
+    try:
+        from pydub import AudioSegment
+        import io
+        
+        # Get the directory where the script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        audio_path = os.path.join(script_dir, "audio.mp3")
+        
+        if not os.path.exists(audio_path):
+            print("No audio.mp3 file found. Using default beeps.")
+            return
+        
+        print(f"Loading audio file: {audio_path}")
+        audio = AudioSegment.from_mp3(audio_path)
+        
+        # Slice audio into 0.5 second chunks (500 milliseconds)
+        chunk_length = 500  # milliseconds
+        
+        for i in range(0, len(audio), chunk_length):
+            chunk = audio[i:i + chunk_length]
+            
+            # Export chunk to bytes and create pygame Sound
+            chunk_io = io.BytesIO()
+            chunk.export(chunk_io, format="wav")
+            chunk_io.seek(0)
+            
+            sound = pygame.mixer.Sound(chunk_io)
+            audio_chunks.append(sound)
+        
+        print(f"Audio file loaded and sliced into {len(audio_chunks)} chunks of 0.5 seconds each")
+        
+    except ImportError:
+        print("pydub library not found. Install with: pip install pydub")
+        print("You may also need ffmpeg: https://ffmpeg.org/download.html")
+        print("Using default beeps instead.")
+    except Exception as e:
+        print(f"Error loading audio file: {e}")
+        print("Using default beeps instead.")
+
+# Load audio at startup
+load_audio()
 
 # Function to convert HSV to RGB for smooth rainbow colors
 def hsv_to_rgb(h, s, v):
@@ -158,16 +210,21 @@ while running:
         circle_radius *= SHRINK_FACTOR
         bounce_count += 1
         
-        # Play beep sound with pitch that increases as circle shrinks
-        # Map radius to frequency: larger circle = lower pitch, smaller = higher
-        # As circle goes from 350 -> 0, frequency goes from 300 -> 800 Hz
-        radius_ratio = circle_radius / initial_radius
-        frequency = int(800 - (radius_ratio * 500))  # Starts at ~300Hz, goes up to 800Hz
-        frequency = max(250, min(1200, frequency))  # Clamp between 250-1200 Hz
-        
-        beep = make_beep(frequency, 0.08)
-        if beep:
-            beep.play()
+        # Play audio - either from MP3 chunks or default beep
+        if audio_chunks and len(audio_chunks) > 0:
+            # Play next chunk from the audio file
+            chunk = audio_chunks[current_chunk_index % len(audio_chunks)]
+            chunk.play()
+            current_chunk_index += 1
+        else:
+            # Default behavior: pitch increases as circle shrinks
+            radius_ratio = circle_radius / initial_radius
+            frequency = int(800 - (radius_ratio * 500))
+            frequency = max(250, min(1200, frequency))
+            
+            beep = make_beep(frequency, 0.08)
+            if beep:
+                beep.play()
         
         # Prevent circle from getting too small
         if circle_radius < ball_radius + 5:
